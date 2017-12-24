@@ -1,0 +1,543 @@
+<html>
+
+<head>
+    <title>合成图片</title>
+    <style type="text/css">
+    body,
+    html {
+        height: 100%;
+        padding: 0px;
+        margin: 0px;
+    }
+
+    #component {}
+
+    #component .canvas-content {
+        height: 90%;
+        background-color: yellow;
+        position: relative;
+    }
+
+    #component .control-btn {
+        height: 10%;
+        background-color: red;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #component .canvas-bg img {
+
+        max-height: 98%;
+        max-width: 90%;
+    }
+
+    #component .canvas-bg {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: auto;
+        height: 100%;
+    }
+
+    #component .canvas-bg-middle {}
+
+    .control-btn .integration-btn {
+        height: 50%;
+        width: 20%;
+        text-align: center;
+
+        background-color: yellow;
+    }
+
+    #component .upload {
+        height: 150px;
+        width: 62%;
+        position: absolute;
+        top: 40%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: blue;
+        display: table;
+    }
+
+    #component .upload input {
+        opacity: 0;
+        display: inline-block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        height: 100%;
+        width: 100%;
+    }
+
+    .upload-btn {
+        text-align: center;
+        display: table-cell;
+        vertical-align: middle;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        z-index: 2;
+    }
+
+    .upload-hint {
+        margin-top: 5px;
+        margin-bottom: 5px;
+        color: #aa8c5b;
+        font-size: 26px;
+    }
+
+    .canvas-content-bg {
+        position: relative;
+        z-index: 10;
+    }
+
+    .canvas-content-middle {
+        display: inline-block;
+        position: absolute;
+        overflow: hidden;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+
+    #file {
+        height: 100%;
+        width: 100%;
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        opacity: 0;
+    }
+
+    .user-upload-img {
+        position: absolute;
+        top: 0px;
+        left: 0px;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .user-upload-img img {
+        /*max-height: 100%;
+			max-width: 100%;*/
+        position: relative;
+        z-index: 5;
+        width: 80%;
+        transform: scale(2);
+        top: 100px;
+        left: 150px;
+    }
+
+    .canvas-window {
+        position: absolute;
+        top: 26%;
+        left: 50%;
+        width: 80%;
+        height: 39%;
+        background: white;
+        z-index: 30;
+        transform: translate(-50%, 0);
+        border-radius: 25px;
+        overflow: hidden;
+    }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+</head>
+
+<body>
+    <div id="component">
+        <div class="canvas-content">
+            <div class="canvas-content-middle">
+                <img src="./img/canvas-bg.png" class="canvas-content-bg">
+                <div class="canvas-window">
+                    <div class="upload-btn">
+                        <img src="./img/camera.png">
+                        <div class="upload-hint" style="color:#aa8c5b">点击上传图片</div>
+                        <div style="font-size:23px">建议上传2M以上的照片</div>
+                        <input type="file" id="file">
+                    </div>
+                    <div class="user-upload-img">
+                        <img src="./img/test.jpg" id="view">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="control-btn">
+            <div class="integration-btn">
+                合成
+            </div>
+        </div>
+    </div>
+</body>
+<script type="text/javascript" src="./js/jquery1.42.min.js"></script>
+<script type="text/javascript" src="./js/exif.js"></script>
+<script type="text/javascript" src="./js/hammer.min.js"></script>
+<script type="text/javascript">
+var clientHeight = document.querySelector(".canvas-content").clientHeight;
+var clientWidth = document.querySelector(".canvas-content").clientWidth;
+
+$(".canvas-content-bg").css("max-height", clientHeight * 0.95);
+$(".canvas-content-bg").css("max-width", clientWidth * 0.95);
+
+document.querySelector('#file').addEventListener('change', function() {
+    $(".upload-btn").css("display", "none");
+    //当没选中图片时，清除预览
+    if (this.files.length === 0) {
+        document.querySelector('#view').src = '';
+        return;
+    }
+    var reader = new FileReader();
+    reader.readAsDataURL(this.files[0]);
+    reader.onload = function(e) {
+        //当reader加载时，把图片的内容赋值给
+        document.querySelector('#view').src = e.target.result;
+    };
+});
+
+$("#view").bind("click", function() {
+    $("#file").click();
+});
+
+
+var isdrag = false;
+var NowLeft, disX;
+var NowTop, disY;
+
+var oDiv2 = $("#view")[0];
+oDiv2.addEventListener('touchstart', thismousedown);
+oDiv2.addEventListener('touchend', thismouseup);
+oDiv2.addEventListener('touchmove', thismousemove);
+
+function thismousedown(e) {
+    isdrag = true;
+    NowLeft = parseInt(oDiv2.style.left + 0);
+    NowTop = parseInt(oDiv2.style.top + 0);
+    disX = e.touches[0].pageX;
+    disY = e.touches[0].pageY;
+    return false;
+}
+
+function thismousemove(e) {
+    if (isdrag) {
+
+        oDiv2.style.left = NowLeft + e.touches[0].pageX - disX + 'px';
+        oDiv2.style.top = NowTop + e.touches[0].pageY - disY + 'px';
+
+        return false;
+    }
+}
+
+function thismouseup() {
+    isdrag = false;
+};
+
+
+
+var scale = 2;
+var hammertime = new Hammer($(".canvas-window")[0]);
+hammertime.get('pinch').set({ enable: true });
+hammertime.get('rotate').set({ enable: true });
+hammertime.on("pinchmove pinchstart pinchin pinchout pinchend", function(e) {
+    $('#view')[0].style.transform = "scale(" + e.scale + ")";
+});
+
+function getPhotoOrientation(img){
+	    var orient = 1;
+	    EXIF.getData(img, function () {
+	        orient = EXIF.getAllTags(img).Orientation;
+	    });
+	    //alert(orient);
+	    return orient;
+	}
+
+
+function fileChange() {
+    //当没选中图片时，清除预览
+    if (this.files.length === 0) {
+        return;
+    }
+    var reader = new FileReader();
+    reader.readAsDataURL(this.files[0]);
+    reader.onload = function(e) {
+        //当reader加载时，把图片的内容赋值给
+        var timg = document.querySelector('#view');
+        timg.onload = function() {
+            	//debugger;
+            var orient = getPhotoOrientation(this);
+            var deg = 0;
+            if (orient) {
+                switch (orient) {
+                    case 1:
+                        deg = 0;
+                        break;
+                    case 6:
+                        deg = 90;
+                        break;
+                    case 8:// 逆 90
+                        deg = 270;
+                        break;
+                    case 3:
+                        deg = 180;
+                        break;
+                };
+
+                var scale = 1;
+
+                var img_z = timg;
+                var can_z = document.createElement("canvas");
+                var context_z = can_z.getContext("2d");
+                var t;//交换变量
+
+
+                var width = img_z.width;
+                var height = img_z.height;
+                can_z.width = width * scale;
+                can_z.height = height * scale;
+                switch (deg) {
+                    case 90:
+                        t = can_z.width;
+                        can_z.width = can_z.height;
+                        can_z.height = t;
+                        context_z.rotate(deg * Math.PI / 180);
+                        context_z.translate(0, -height * scale);
+                        break;
+                    case 180:
+                        context_z.rotate(deg * Math.PI / 180);
+                        context_z.translate(-width * scale, -height * scale);
+                        break;
+                    case 270:
+                        t = can_z.width;
+                        can_z.width = can_z.height;
+                        can_z.height = t;
+                        context_z.rotate(deg * Math.PI / 180);
+                        context_z.translate(-width * scale, 0);
+                        break;
+                }
+
+                context_z.scale(scale, scale);
+                context_z.drawImage(img_z, 0, 0, width, height);
+
+                var dataURL = can_z.toDataURL("image/png");
+                timg.onload = null;
+                timg.src = dataURL;
+
+            }
+
+        };
+        timg.src = e.target.result;
+
+    };
+}
+
+
+
+//document.querySelector('#file').addEventListener('change', fileChange);
+
+
+
+/**
+ * Draws a rounded rectangle using the current state of the canvas.
+ * If you omit the last three params, it will draw a rectangle
+ * outline with a 5 pixel border radius
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {Number} x The top left x coordinate
+ * @param {Number} y The top left y coordinate
+ * @param {Number} width The width of the rectangle
+ * @param {Number} height The height of the rectangle
+ * @param {Number} [radius = 5] The corner radius; It can also be an object 
+ *                 to specify different radii for corners
+ * @param {Number} [radius.tl = 0] Top left
+ * @param {Number} [radius.tr = 0] Top right
+ * @param {Number} [radius.br = 0] Bottom right
+ * @param {Number} [radius.bl = 0] Bottom left
+ * @param {Boolean} [fill = false] Whether to fill the rectangle.
+ * @param {Boolean} [stroke = true] Whether to stroke the rectangle.
+ */
+function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+    if (typeof stroke == 'undefined') {
+        stroke = true;
+    }
+    if (typeof radius === 'undefined') {
+        radius = 5;
+    }
+    if (typeof radius === 'number') {
+        radius = { tl: radius, tr: radius, br: radius, bl: radius };
+    } else {
+        var defaultRadius = { tl: 0, tr: 0, br: 0, bl: 0 };
+        for (var side in defaultRadius) {
+            radius[side] = radius[side] || defaultRadius[side];
+        }
+    }
+    ctx.beginPath();
+    ctx.moveTo(x + radius.tl, y);
+    ctx.lineTo(x + width - radius.tr, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
+    ctx.lineTo(x + width, y + height - radius.br);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
+    ctx.lineTo(x + radius.bl, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
+    ctx.lineTo(x, y + radius.tl);
+    ctx.quadraticCurveTo(x, y, x + radius.tl, y);
+    ctx.closePath();
+    if (fill) {
+        ctx.fill();
+    }
+    if (stroke) {
+        ctx.stroke();
+    }
+
+}
+
+
+$('.integration-btn').bind("click", function(e) {
+
+    var bgImg = document.createElement("img");
+    bgImg.onload = function() {
+        var bgImgHeight = bgImg.height;
+        var bgImgWidth = bgImg.width;
+
+        var canvas = document.createElement("canvas");
+        canvas.height = bgImgHeight;
+        canvas.width = bgImgWidth;
+
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(bgImg, 0, 0);
+
+        //get scale and width and height
+        var windowScale = bgImgHeight / $(".canvas-content-bg").eq(0).height();
+        var canvasWindowPosition = $(".canvas-window").position();
+        var canvasWindowLeft = canvasWindowPosition.left * windowScale;
+        var canvasWindowTop = canvasWindowPosition.top * windowScale;
+        var canvasWindowWidth = $(".canvas-window").eq(0).width() * windowScale;
+        var canvasWindowHeight = $(".canvas-window").eq(0).height() * windowScale;
+        //debugger;
+
+        //创建一个新的画布用来做背景的填充
+
+        var bgCanvas = document.createElement("canvas");
+        var bgCanvasCtx = bgCanvas.getContext("2d");
+        bgCanvas.height = canvasWindowHeight + canvasWindowTop;
+        bgCanvas.width = canvasWindowWidth + canvasWindowLeft;
+
+        var userImgPosition = $("#view").position();
+        var userImgLeft = (userImgPosition.left) * windowScale + canvasWindowLeft;
+        var userImgTop = (userImgPosition.top) * windowScale + canvasWindowTop;
+        //debugger;
+        //计算缩放到原图大小需要多少比例
+        var userImgSrc = $('#view').attr('src');
+        //loadImg(userImgSrc);
+
+
+
+        var img = new Image();
+        img.onload = function() {
+            var userImgNatureHeight = this.height;
+            var userImgNatureWidth = this.width;
+
+            var userImgRect = document.getElementById("view").getBoundingClientRect();
+            var userImgScale = userImgNatureHeight / (userImgRect.height * windowScale);
+            // bgCanvas.height *= userImgScale;
+            // bgCanvas.width *= userImgScale;
+            // userImgLeft *= userImgScale;
+            // userImgTop *= userImgScale;
+
+            /*	var t2 = new Image();
+            	t2.onload = function(){*/
+
+            bgCanvasCtx.fillStyle = "white";
+            bgCanvasCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+            bgCanvasCtx.scale(1 / userImgScale, 1 / userImgScale);
+            //debugger;
+            bgCanvasCtx.drawImage($("#view")[0], userImgLeft, userImgTop);
+            /*bgCanvas.height *= 1/userImgScale;
+				 	bgCanvas.width *= 1/userImgScale;*/
+            /*	var srcStr = bgCanvas.toDataURL();
+            	var t1 = new Image();
+            	t1.onload = function(){*/
+
+            // ctx.strokeStyle = "red";
+
+            // var bgCanvas3 = document.createElement("canvas");	
+            // var bgCanvasCtx3 = bgCanvas3.getContext("2d");
+            // bgCanvas3.height =  canvasWindowHeight;
+            // bgCanvas3.width =  canvasWindowWidth;
+
+
+            var component = bgCanvasCtx.createPattern(bgCanvas, "no-repeat");
+            ctx.fillStyle = component;
+
+            //function roundRect(ctx, x, y, width, height, radius, fill, stroke) {
+            roundRect(ctx, canvasWindowLeft, canvasWindowTop, canvasWindowWidth, canvasWindowHeight, 25, true, false);
+
+            //var fullSrc = canvas.toDataURL();
+            //$("#view")[0].src = fullSrc;
+            canvas.style.width = "100%"
+            //canvas.style.width
+            $("body").eq(0).append(canvas);
+            /*}
+            t1.src = srcStr;*/
+            //document.body.appendChild(t1);
+
+
+            /*}
+            t2.src = userImgSrc;*/
+
+
+
+
+        };
+        img.src = userImgSrc;
+
+
+    }
+    bgImg.src = "./img/canvas-bg.png";
+});
+
+
+var userImgNatureHeight, userImgNatureWidth;
+
+function loadImg(src) {
+    var img = new Image();
+    img.onload = function() {
+        userImgNatureHeight = this.height;
+        userImgNatureWidth = this.width;
+    };
+    img.src = src;
+}
+
+/*function getFillStyle(){
+	var sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight= 0;
+
+	var imgRect = $("#view").getBoundingClientRect();
+	var canvasRect = $(".canvas-window").eq(0).getBoundingClientRect();
+
+	if(imgRect.left < canvasRect.left){
+		sx = canvasRect.left - imgRect.left;
+		dx = 0;
+	}else{
+		sx = 0;
+		dx = imgRect.left - canvasRect.left;
+	}
+
+	if(imgRect.top > canvasRect.top){
+		dy = imgRect.top - canvasRect.top;
+		sy = 0;
+	}else{
+		dy = 0;
+		sy = imgRect.top - canvasRect.top;
+	}
+
+	
+}*/
+</script>
+
+</html>
